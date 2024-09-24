@@ -1,0 +1,100 @@
+name: machine-learning-environment
+
+services:
+  postgresql:
+    image: bitnami/postgresql:latest
+    container_name: postgresql
+    hostname: postgresql
+    environment:
+      POSTGRESQL_DATABASE: mlflow
+      POSTGRESQL_USERNAME: ${POSTGRESQL_USERNAME:?err}
+      POSTGRESQL_PASSWORD: ${POSTGRESQL_PASSWORD:?err}
+    restart: unless-stopped
+    volumes:
+      - postgresql:/bitnami/postgresql
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-d", "mlflow", "-U", "${POSTGRESQL_USERNAME:?err}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
+  minio:
+    image: bitnami/minio:latest
+    container_name: minio
+    hostname: minio
+    environment:
+      MINIO_ROOT_USER: ${MINIO_ROOT_USER:?err}
+      MINIO_ROOT_PASSWORD: ${MINIO_ROOT_PASSWORD:?err}
+      MINIO_DEFAULT_BUCKETS: mlflow
+    restart: unless-stopped
+    volumes:
+      - minio:/bitnami/minio
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
+  mlflow:
+    image: tornermarton/mlflow:latest
+    container_name: mlflow
+    hostname: mlflow
+    environment:
+      MLFLOW_HOST: 0.0.0.0
+      MLFLOW_PORT: 8889
+      MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRESQL_USERNAME:?err}:${POSTGRESQL_PASSWORD:?err}@postgresql:5432/mlflow
+      MLFLOW_ARTIFACTS_DESTINATION: s3://mlflow
+      MLFLOW_S3_ENDPOINT_URL: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?err}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?err}
+    restart: unless-stopped
+    depends_on:
+      - postgresql
+      - minio
+    ports:
+      - published: 8889
+        target: 8889
+        host_ip: 127.0.0.1
+        protocol: tcp
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:8080" ]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
+  notebook:
+#    image: tornermarton/pytorch-notebook:cuda12-latest
+    image: tornermarton/pytorch-notebook:latest
+    container_name: notebook
+    hostname: notebook
+    environment:
+      MLFLOW_TRACKING_URI: http://mlflow:8889
+      MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING: true
+      MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL: 5
+      MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING: 1
+      RESTARTABLE: yes
+      NOTEBOOK_ARGS: >
+        --ServerApp.root_dir='/home/jovyan/work' 
+        --ServerApp.password=''
+        --IdentityProvider.token=''
+        --LabApp.check_for_updates_class='jupyterlab.NeverCheckForUpdate'
+    restart: unless-stopped
+    depends_on:
+      - mlflow
+    ports:
+      - published: 8888
+        target: 8888
+        host_ip: 127.0.0.1
+        protocol: tcp
+    volumes:
+      - notebook-work:/home/jovyan/work
+    healthcheck:
+      test: [ "CMD", "/etc/jupyter/docker_healthcheck.py" ]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
+volumes:
+  postgresql:
+  minio:
+  notebook-work:
