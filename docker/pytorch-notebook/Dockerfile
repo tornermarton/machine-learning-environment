@@ -7,6 +7,6 @@ RUN jupyter labextension disable --level=system "@jupyterlab/apputils-extension:
 
 USER ${NB_USER}
 
-RUN pip install --no-cache-dir mlflow psutil pynvml && \
+RUN pip install --no-cache-dir mlflow psutil pynvml torchmetrics lightning[extra] tensorboard && \
     fix-permissions "${CONDA_DIR}" && \
     fix-permissions "/home/${NB_USER}"

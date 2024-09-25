@@ -6,13 +6,17 @@ RUN apt-get update --fix-missing                                \
     && apt-get autoremove -y                                    \
     && rm -rf /var/lib/apt/lists/*
 
-RUN pip install --no-cache-dir mlflow psycopg2-binary boto3
+RUN pip install --no-cache-dir tensorflow tensorflow-io
 
-RUN useradd -m mlflow
-RUN mkdir -p /home/mlflow/mlruns /home/mlflow/mlartifacts
+RUN useradd -m tensorboard
+RUN mkdir -p /home/tensorboard/logs
 
-WORKDIR /home/mlflow
-USER mlflow
+WORKDIR /home/tensorboard
+USER tensorboard
 
-ENTRYPOINT ["mlflow"]
-CMD ["server"]
+ARG LOGDIR='/home/tensorboard/logs'
+ENV LOGDIR=${LOGDIR}
+
+ENTRYPOINT [ "sh", "-c", "tensorboard --bind_all --logdir ${LOGDIR}" ]
+
+EXPOSE 6006

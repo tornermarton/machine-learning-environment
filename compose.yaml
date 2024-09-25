@@ -35,29 +35,54 @@ services:
       timeout: 5s
       retries: 3
 
+  tensorboard:
+    image: tornermarton/tensorboard:latest
+    container_name: tensorboard
+    hostname: tensorboard
+    environment:
+      LOGDIR: s3://mlflow/mlflow
+      S3_ENDPOINT: http://minio:9000
+      AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?err}
+      AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?err}
+    restart: unless-stopped
+    depends_on:
+      minio:
+        condition: service_healthy
+    ports:
+      - target: 6006
+        published: 8090
+        host_ip: 127.0.0.1
+        protocol: tcp
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:6006" ]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
   mlflow:
     image: tornermarton/mlflow:latest
     container_name: mlflow
     hostname: mlflow
     environment:
       MLFLOW_HOST: 0.0.0.0
-      MLFLOW_PORT: 8889
       MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRESQL_USERNAME:?err}:${POSTGRESQL_PASSWORD:?err}@postgresql:5432/mlflow
-      MLFLOW_ARTIFACTS_DESTINATION: s3://mlflow
+      MLFLOW_ARTIFACTS_DESTINATION: s3://mlflow/mlflow
       MLFLOW_S3_ENDPOINT_URL: http://minio:9000
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?err}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?err}
     restart: unless-stopped
     depends_on:
-      - postgresql
-      - minio
+      postgresql:
+        condition: service_healthy
+      minio:
+        condition: service_healthy
     ports:
-      - published: 8889
-        target: 8889
+      - target: 5000
+        published: 8889
         host_ip: 127.0.0.1
         protocol: tcp
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:8080" ]
+      test: [ "CMD", "curl", "-f", "http://localhost:5000" ]
       interval: 5s
       timeout: 5s
       retries: 3
@@ -80,10 +105,13 @@ services:
         --LabApp.check_for_updates_class='jupyterlab.NeverCheckForUpdate'
     restart: unless-stopped
     depends_on:
-      - mlflow
+      mlflow:
+        condition: service_healthy
+      tensorboard:
+        condition: service_healthy
     ports:
-      - published: 8888
-        target: 8888
+      - target: 8888
+        published: 8888
         host_ip: 127.0.0.1
         protocol: tcp
     volumes:
