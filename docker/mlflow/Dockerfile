@@ -1,4 +1,6 @@
-FROM python:latest
+# TODO: current latest cannot install pyarrow, must check later
+# FROM python:latest
+FROM python:3.12
 
 RUN apt-get update --fix-missing                                \
     && apt-get install -y --no-install-recommends curl          \

@@ -1,4 +1,4 @@
-FROM quay.io/jupyter/pytorch-notebook:latest
+FROM quay.io/jupyter/base-notebook:latest
 
 USER root
 
@@ -8,6 +8,6 @@ USER ${NB_USER}
 
 RUN mkdir "/home/${NB_USER}/data"
 
-RUN pip install --no-cache-dir mlflow-skinny psutil pynvml torchmetrics lightning[extra] tensorboard && \
+RUN pip install --no-cache-dir mlflow-skinny psutil pynvml tensorboard && \
     fix-permissions "${CONDA_DIR}" && \
     fix-permissions "/home/${NB_USER}"

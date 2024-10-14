@@ -1,4 +1,4 @@
-FROM quay.io/jupyter/pytorch-notebook:latest
+FROM quay.io/jupyter/pytorch-notebook:cuda12-latest
 
 USER root
 

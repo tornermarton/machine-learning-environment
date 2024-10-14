@@ -93,7 +93,7 @@ services:
     container_name: notebook
     hostname: notebook
     environment:
-      MLFLOW_TRACKING_URI: http://mlflow:8889
+      MLFLOW_TRACKING_URI: http://mlflow:5000
       MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING: true
       MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL: 5
       MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING: 1
