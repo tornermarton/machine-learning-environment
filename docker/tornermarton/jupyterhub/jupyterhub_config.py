@@ -23,10 +23,9 @@ c.JupyterHub.port = 8888
 c.JupyterHub.allow_named_servers = True
 c.JupyterHub.redirect_to_server = False
 
-c.JupyterHub.db_url = "sqlite:////data/jupyterhub.sqlite"
+db_url = os.environ.get("JPY_DB_URL", "sqlite:///jupyterhub.sqlite")
+c.JupyterHub.db_url = db_url
 c.JupyterHub.upgrade_db = True
-
-c.JupyterHub.cookie_secret_file = "/data/jupyterhub_cookie_secret"
 
 c.JupyterHub.spawner_class = "dockerspawner.DockerSpawner"
 
@@ -38,6 +37,9 @@ c.DockerSpawner.image = docker_image
 
 docker_allowed_images = os.environ.get("DOCKER_ALLOWED_IMAGES", "").split(',')
 c.DockerSpawner.allowed_images = docker_allowed_images
+
+docker_pull_policy = os.environ.get("DOCKER_PULL_POLICY", "always")
+c.DockerSpawner.docker_pull_policy = docker_pull_policy
 
 docker_environment = os.environ.get("DOCKER_ENVIRONMENT", "").split(',')
 c.DockerSpawner.environment = {key: get_environment(key) for key in docker_environment}
@@ -60,5 +62,5 @@ c.Authenticator.admin_users = {"admin"}
 # Allow all signed-up users to login
 c.Authenticator.allow_all = True
 
-# c.NativeAuthenticator.check_common_password = True
-# c.NativeAuthenticator.minimum_password_length = 10
+c.NativeAuthenticator.minimum_password_length = 10
+c.NativeAuthenticator.check_common_password = True

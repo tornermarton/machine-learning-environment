@@ -1,23 +1,6 @@
 name: machine-learning-environment
 
 services:
-  postgresql:
-    image: bitnami/postgresql:latest
-    container_name: postgresql
-    hostname: postgresql
-    environment:
-      POSTGRESQL_DATABASE: mlflow
-      POSTGRESQL_USERNAME: ${POSTGRESQL_USERNAME:?err}
-      POSTGRESQL_PASSWORD: ${POSTGRESQL_PASSWORD:?err}
-    restart: unless-stopped
-    volumes:
-      - postgresql:/bitnami/postgresql
-    healthcheck:
-      test: [ "CMD", "pg_isready", "-d", "mlflow", "-U", "${POSTGRESQL_USERNAME:?err}" ]
-      interval: 5s
-      timeout: 5s
-      retries: 3
-
   minio:
     image: bitnami/minio:latest
     container_name: minio
@@ -50,7 +33,7 @@ services:
         condition: service_healthy
     ports:
       - target: 6006
-        published: 8090
+        published: 8890
         host_ip: 127.0.0.1
         protocol: tcp
     healthcheck:
@@ -59,23 +42,40 @@ services:
       timeout: 5s
       retries: 3
 
+  mlflow-postgresql:
+    image: bitnami/postgresql:latest
+    container_name: mlflow-postgresql
+    hostname: mlflow-postgresql
+    environment:
+      POSTGRESQL_DATABASE: mlflow
+      POSTGRESQL_USERNAME: ${MLFLOW_POSTGRESQL_USERNAME:?err}
+      POSTGRESQL_PASSWORD: ${MLFLOW_POSTGRESQL_PASSWORD:?err}
+    restart: unless-stopped
+    volumes:
+      - mlflow-postgresql:/bitnami/postgresql
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-d", "mlflow", "-U", "${MLFLOW_POSTGRESQL_USERNAME:?err}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
   mlflow:
     image: tornermarton/mlflow:latest
     container_name: mlflow
     hostname: mlflow
-#    command: ["db", "upgrade", "postgresql://${POSTGRESQL_USERNAME:?err}:${POSTGRESQL_PASSWORD:?err}@postgresql:5432/mlflow"]
+#    command: ["db", "upgrade", "postgresql://${MLFLOW_POSTGRESQL_USERNAME:?err}:${MLFLOW_POSTGRESQL_PASSWORD:?err}@postgresql:5432/mlflow"]
     environment:
       MLFLOW_HOST: 0.0.0.0
-      MLFLOW_BACKEND_STORE_URI: postgresql://${POSTGRESQL_USERNAME:?err}:${POSTGRESQL_PASSWORD:?err}@postgresql:5432/mlflow
+      MLFLOW_BACKEND_STORE_URI: postgresql://${MLFLOW_POSTGRESQL_USERNAME:?err}:${MLFLOW_POSTGRESQL_PASSWORD:?err}@mlflow-postgresql:5432/mlflow
       MLFLOW_ARTIFACTS_DESTINATION: s3://mlflow/mlflow
       MLFLOW_S3_ENDPOINT_URL: http://minio:9000
       AWS_ACCESS_KEY_ID: ${MINIO_ROOT_USER:?err}
       AWS_SECRET_ACCESS_KEY: ${MINIO_ROOT_PASSWORD:?err}
     restart: unless-stopped
     depends_on:
-      postgresql:
-        condition: service_healthy
       minio:
+        condition: service_healthy
+      mlflow-postgresql:
         condition: service_healthy
     ports:
       - target: 5000
@@ -91,6 +91,23 @@ services:
       timeout: 5s
       retries: 3
 
+  jupyterhub-postgresql:
+    image: bitnami/postgresql:latest
+    container_name: jupyterhub-postgresql
+    hostname: jupyterhub-postgresql
+    environment:
+      POSTGRESQL_DATABASE: jupyterhub
+      POSTGRESQL_USERNAME: ${JUPYTERHUB_POSTGRESQL_USERNAME:?err}
+      POSTGRESQL_PASSWORD: ${JUPYTERHUB_POSTGRESQL_PASSWORD:?err}
+    restart: unless-stopped
+    volumes:
+      - jupyterhub-postgresql:/bitnami/postgresql
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-d", "jupyterhub", "-U", "${JUPYTERHUB_POSTGRESQL_USERNAME:?err}" ]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
   jupyterhub:
     image: tornermarton/jupyterhub:latest
     container_name: jupyterhub
@@ -102,11 +119,17 @@ services:
       MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING: true
       MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL: 5
       MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING: 1
+      # JupyterHub configuration
+      JPY_DB_URL: postgresql://${JUPYTERHUB_POSTGRESQL_USERNAME:?err}:${JUPYTERHUB_POSTGRESQL_PASSWORD:?err}@jupyterhub-postgresql:5432/jupyterhub
+      JPY_COOKIE_SECRET: ${JUPYTERHUB_COOKIE_SECRET:?err}
       # Spawner configuration
       DOCKER_ALLOWED_IMAGES: tornermarton/base-notebook:latest,tornermarton/pytorch-notebook:latest,tornermarton/pytorch-notebook:cuda12-latest
       DOCKER_NETWORK_NAME: machine-learning-environment_jupyterhub
       DOCKER_ENVIRONMENT: MLFLOW_TRACKING_URI,MLFLOW_TRACKING_USERNAME,MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING,MLFLOW_SYSTEM_METRICS_SAMPLING_INTERVAL,MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING
     restart: unless-stopped
+    depends_on:
+      jupyterhub-postgresql:
+        condition: service_healthy
     ports:
       - target: 8888
         published: 8888
@@ -117,7 +140,6 @@ services:
       - jupyterhub
     volumes:
       - /var/run/docker.sock:/var/run/docker.sock
-      - jupyterhub-data:/data
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8888" ]
       interval: 5s
@@ -128,6 +150,6 @@ networks:
   jupyterhub:
 
 volumes:
-  postgresql:
   minio:
-  jupyterhub-data:
+  mlflow-postgresql:
+  jupyterhub-postgresql:

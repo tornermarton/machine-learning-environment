@@ -1,23 +1,6 @@
 name: machine-learning-environment
 
 services:
-  postgresql:
-    image: bitnami/postgresql:latest
-    container_name: postgresql
-    hostname: postgresql
-    environment:
-      POSTGRESQL_DATABASE: mlflow
-      POSTGRESQL_USERNAME: ${POSTGRESQL_USERNAME:?err}
-      POSTGRESQL_PASSWORD: ${POSTGRESQL_PASSWORD:?err}
-    restart: unless-stopped
-    volumes:
-      - postgresql:/bitnami/postgresql
-    healthcheck:
-      test: [ "CMD", "pg_isready", "-d", "mlflow", "-U", "${POSTGRESQL_USERNAME:?err}" ]
-      interval: 5s
-      timeout: 5s
-      retries: 3
-
   minio:
     image: bitnami/minio:latest
     container_name: minio
@@ -31,6 +14,23 @@ services:
       - minio:/bitnami/minio
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:9000/minio/health/live" ]
+      interval: 5s
+      timeout: 5s
+      retries: 3
+
+  postgresql:
+    image: bitnami/postgresql:latest
+    container_name: postgresql
+    hostname: postgresql
+    environment:
+      POSTGRESQL_DATABASE: mlflow
+      POSTGRESQL_USERNAME: ${POSTGRESQL_USERNAME:?err}
+      POSTGRESQL_PASSWORD: ${POSTGRESQL_PASSWORD:?err}
+    restart: unless-stopped
+    volumes:
+      - postgresql:/bitnami/postgresql
+    healthcheck:
+      test: [ "CMD", "pg_isready", "-d", "mlflow", "-U", "${POSTGRESQL_USERNAME:?err}" ]
       interval: 5s
       timeout: 5s
       retries: 3
@@ -50,7 +50,7 @@ services:
         condition: service_healthy
     ports:
       - target: 6006
-        published: 8090
+        published: 8890
         host_ip: 127.0.0.1
         protocol: tcp
     healthcheck:
@@ -87,11 +87,11 @@ services:
       timeout: 5s
       retries: 3
 
-  notebook:
+  jupyterlab:
 #    image: tornermarton/pytorch-notebook:cuda12-latest
     image: tornermarton/pytorch-notebook:latest
-    container_name: notebook
-    hostname: notebook
+    container_name: jupyterlab
+    hostname: jupyterlab
     environment:
       MLFLOW_TRACKING_URI: http://mlflow:5000
       MLFLOW_ENABLE_SYSTEM_METRICS_LOGGING: true
@@ -99,23 +99,17 @@ services:
       MLFLOW_SYSTEM_METRICS_SAMPLES_BEFORE_LOGGING: 1
       RESTARTABLE: yes
       NOTEBOOK_ARGS: >
-        --ServerApp.root_dir='/home/jovyan/work' 
         --ServerApp.password=''
         --IdentityProvider.token=''
         --LabApp.check_for_updates_class='jupyterlab.NeverCheckForUpdate'
     restart: unless-stopped
-    depends_on:
-      mlflow:
-        condition: service_healthy
-      tensorboard:
-        condition: service_healthy
     ports:
       - target: 8888
         published: 8888
         host_ip: 127.0.0.1
         protocol: tcp
     volumes:
-      - notebook-work:/home/jovyan/work
+      - jupyterlab:/home/jovyan
     healthcheck:
       test: [ "CMD", "/etc/jupyter/docker_healthcheck.py" ]
       interval: 5s
@@ -125,4 +119,4 @@ services:
 volumes:
   postgresql:
   minio:
-  notebook-work:
+  jupyterlab:
